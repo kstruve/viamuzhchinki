@@ -24,7 +24,7 @@ body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
 <button id="sfx-toggle" class="audio-toggle" type="button" aria-label="Отключить эффекты" aria-pressed="false"></button>
 <button id="music-toggle" class="audio-toggle" type="button" aria-label="Отключить музыку" aria-pressed="false"></button>
 <script src="./music.js?v=aebca1c68cb8"></script>
-<script src="./sfx.js?v=de70f6a40441"></script>
+<script src="./sfx.js?v=e979b41dcc85"></script>
 <script>
 (()=>{
  const music=new Audio(BACKGROUND_MUSIC);music.loop=true;music.volume=1;music.preload='auto';
@@ -582,7 +582,7 @@ if(new URLSearchParams(location.search).has('diag'))bandwhackGame.events.on('pos
 </script>
 <script>
 (()=>{
- const build='20261017-voices-6';document.documentElement.dataset.bandwhackBuild=build;
+ const build='20261017-voices-7';document.documentElement.dataset.bandwhackBuild=build;
  if(!new URLSearchParams(location.search).has('diag'))return;
  const box=document.createElement('div');box.dataset.testid='phone-diagnostics';box.style='position:fixed;top:2px;left:2px;z-index:100000;pointer-events:none;background:#111e;color:#ffda6b;padding:5px;font:11px monospace;white-space:pre-wrap';document.body.append(box);
  let previous=performance.now(),since=previous,frames=[],tapDelay=0,taps=0,errors=0,rendered=0,audio='ещё не запущено';
