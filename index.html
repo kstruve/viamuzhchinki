@@ -97,11 +97,21 @@ class BandWhack extends Phaser.Scene {
   this.characters=Object.keys(CHARACTER_IMAGES);
   // 220 equal tickets: Kostyan22 (10%), MASHKOV/Yarik/Drew11 each (5%), others15 each.
   this.characterSpawnPool=this.characters.flatMap(name=>Array(name==='Kostyan'?22:['MASHKOV','Yarik','Drew'].includes(name)?11:15).fill(name));
+  this.alphaMasks=Object.create(null);
+  const hitCanvas=document.createElement('canvas'),hitContext=hitCanvas.getContext('2d',{willReadFrequently:true});
   for(const name of this.characters){
    const texture=this.textures.get(name),image=texture.getSourceImage();
    const w=image.width/3,h=image.height/2;
    for(let i=0;i<5;i++)texture.add(i,0,Math.round((i%3)*w),Math.round(Math.floor(i/3)*h),Math.round(w),Math.round(h));
+   // Read alpha once at load; touch hit tests use this compact bitmap, never canvas readback.
+   hitCanvas.width=image.width;hitCanvas.height=image.height;hitContext.drawImage(image,0,0);
+   const pixels=hitContext.getImageData(0,0,image.width,image.height).data,bits=new Uint8Array(Math.ceil(image.width*image.height/8));
+   for(let index=0;index<image.width*image.height;index++)if(pixels[index*4+3]>=80)bits[index>>>3]|=1<<(index&7);
+   this.alphaMasks[name]={width:image.width,bits};
+
   }
+  hitCanvas.width=hitCanvas.height=1;
+  this.installGlintTexture();
   this.textures.get('pixel-hole').add('front',0,0,54,184,10);
   this.frameBaselines={"Struve": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Mirosh": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Drew": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Semenych": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Domik": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Glebas": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Egor": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Edik": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Bodya": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Tema": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Dariy": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Yarik": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "iiist": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "Kostyan": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875], "MASHKOV": [0.9921875, 0.9921875, 0.9921875, 0.9921875, 0.9921875]};
   this.animationSpeed=1.2;
@@ -136,14 +146,14 @@ class BandWhack extends Phaser.Scene {
   for(let row=0;row<3;row++)for(let col=0;col<3;col++){
    const x=160+col*200,y=425+row*225,base=y+89;
    this.add.image(x,base+10,'pixel-hole','__BASE').setOrigin(.5,1).setDisplaySize(198.378,68.598);
-   const head=this.add.image(x,base+10,'Struve',0).setOrigin(.5,1).setDisplaySize(184,184).setInteractive({useHandCursor:true,pixelPerfect:true,alphaTolerance:80}).setVisible(false);
+   const head=this.add.image(x,base+10,'Struve',0).setOrigin(.5,1).setDisplaySize(184,184).setInteractive({useHandCursor:true,hitArea:{},hitAreaCallback:(area,x,y,object)=>this.cachedAlphaHit(object,x,y)}).setVisible(false);
    // Fixed opening mask: open above the floor, curved along the inner front rim.
    const clip=this.make.graphics({x:0,y:0,add:false});
 
    head.setMask(clip.createGeometryMask());
    this.add.image(x,base+10,'pixel-hole','front').setOrigin(.5,1).setDisplaySize(198.378,11.124);
    const slot={head,base:base+10,baseY:base+10,clip,clipX:x-100,clipY:y-135,holeX:x,peekOffset:0,resolved:true,active:false,busy:false,timers:[]};this.slots.push(slot);
-   slot.shine=this.add.graphics().setDepth(100).setMask(head.mask);
+   slot.shine=this.add.image(x,base,'mashkov-glint').setDepth(100).setMask(head.mask).setVisible(false);
    this.updateHoleMask(slot);
    head.on('pointerdown',pointer=>{
     if(!this.running||!slot.active)return;
@@ -257,6 +267,18 @@ class BandWhack extends Phaser.Scene {
   }
   slot.clip.clear().fillStyle(0xffffff).fillPoints(points,true);
  }
+ cachedAlphaHit(head,x,y){
+  const frame=head.frame,ix=Math.floor(x),iy=Math.floor(y),mask=this.alphaMasks[head.texture.key];
+  if(!mask||ix<0||iy<0||ix>=frame.cutWidth||iy>=frame.cutHeight)return false;
+  const index=(frame.cutY+iy)*mask.width+frame.cutX+ix;
+  return (mask.bits[index>>>3]&(1<<(index&7)))!==0;
+ }
+ installGlintTexture(){
+  const drawing=this.make.graphics({x:0,y:0,add:false}),points=[{x:32,y:1},{x:38,y:26},{x:63,y:32},{x:38,y:38},{x:32,y:63},{x:26,y:38},{x:1,y:32},{x:26,y:26}];
+  drawing.fillStyle(0xffd166,1).fillPoints(points,true);
+  drawing.fillStyle(0xffffff,1).fillPoints(points.map(p=>({x:32+(p.x-32)*.72,y:32+(p.y-32)*.72})),true);
+  drawing.fillRect(53,9,5,5);drawing.generateTexture('mashkov-glint',64,64);drawing.destroy();
+ }
  pose(head,frame){
   head.setFrame(frame);
   const size=head.texture.key==='Kostyan'?206.186904:head.texture.key==='Drew'?174.8:['MASHKOV','Dariy'].includes(head.texture.key)?173.88:['Domik','Egor','Edik','Bodya','Tema','Yarik','iiist'].includes(head.texture.key)?165.6:184;
@@ -279,7 +301,7 @@ class BandWhack extends Phaser.Scene {
   this.score=0;this.running=true;this.endsAt=this.time.now+60000;
   this.scoreText.setText('СЧЁТ  0');this.timeText.setText('60 сек');this.progress.width=600;
   this.button.setVisible(false);this.buttonText.setVisible(false);this.status.setText('Лови момент!');
-  this.slots.forEach(s=>{this.cancelSlot(s);s.busy=false;s.head.setVisible(false);s.shine.clear();});
+  this.slots.forEach(s=>{this.cancelSlot(s);s.busy=false;s.head.setVisible(false);s.shine.setVisible(false);});
   this.spawnWave();
  }
  spawnWave(){
@@ -404,17 +426,12 @@ class BandWhack extends Phaser.Scene {
 
  updateMashkovGlints(){
   for(const slot of this.slots){
-   const shine=slot.shine,head=slot.head;shine.clear();
-   if(!head.visible||head.texture.key!=='MASHKOV'||!slot.busy)continue;
+   const shine=slot.shine,head=slot.head;
+   if(!head.visible||head.texture.key!=='MASHKOV'||!slot.busy){if(shine.visible)shine.setVisible(false);continue;}
    const phase=(this.time.now+slot.holeX*3)%1800;
-   if(phase>650)continue;
-   const pulse=Math.sin(Math.PI*phase/650),radius=4+19*pulse;
-   const peek=head.frame.name===4;
-   shine.setPosition(head.x-head.displayWidth*.14,head.y-head.displayHeight*(head.originY-(peek?.48:.24)));
-   const points=[{x:0,y:-radius},{x:radius*.2,y:-radius*.2},{x:radius,y:0},{x:radius*.2,y:radius*.2},{x:0,y:radius},{x:-radius*.2,y:radius*.2},{x:-radius,y:0},{x:-radius*.2,y:-radius*.2}];
-   shine.fillStyle(0xffd166,.95).fillPoints(points,true);
-   shine.fillStyle(0xffffff,1).fillPoints(points.map(p=>({x:p.x*.72,y:p.y*.72})),true);
-   shine.fillStyle(0xffffff,.9).fillRect(radius*.7,-radius*.85,4,4);
+   if(phase>650){if(shine.visible)shine.setVisible(false);continue;}
+   const radius=4+19*Math.sin(Math.PI*phase/650),peek=head.frame.name===4;
+   shine.setPosition(head.x-head.displayWidth*.14,head.y-head.displayHeight*(head.originY-(peek?.48:.24))).setDisplaySize(radius*2,radius*2).setVisible(true);
   }
  }
  update(){
@@ -551,7 +568,7 @@ class BandWhack extends Phaser.Scene {
  }
  finish(){
   if(!this.running)return;this.running=false;this.spawnTimer?.remove(false);
-  this.slots.forEach(s=>{if(s.ignited)this.explodeMashkov(s,s.ignitionPointer);this.cancelSlot(s);s.busy=false;s.head.setVisible(false);s.shine.clear();});
+  this.slots.forEach(s=>{if(s.ignited)this.explodeMashkov(s,s.ignitionPointer);this.cancelSlot(s);s.busy=false;s.head.setVisible(false);s.shine.setVisible(false);});
   this.timeText.setText('0 сек');this.progress.width=0;
   this.roundHud.setVisible(false);this.menuControl.setVisible(true);
   this.status.setText('Время! Твой результат: '+this.score);
@@ -561,7 +578,7 @@ class BandWhack extends Phaser.Scene {
   this.buttonText.setText('ЕЩЁ РАЗ').setFontSize(30);
  }
 }
-new Phaser.Game({type:Phaser.AUTO,width:720,height:1280,backgroundColor:'#191d2c',pixelArt:true,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:BandWhack});
+new Phaser.Game({type:Phaser.AUTO,width:720,height:1280,backgroundColor:'#191d2c',pixelArt:true,input:{activePointers:4},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:BandWhack});
 }
 </script>
 <script>
