@@ -24,12 +24,13 @@ body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
 <button id="sfx-toggle" class="audio-toggle" type="button" aria-label="Отключить эффекты" aria-pressed="false"></button>
 <button id="music-toggle" class="audio-toggle" type="button" aria-label="Отключить музыку" aria-pressed="false"></button>
 <script src="./music.js?v=aebca1c68cb8"></script>
-<script src="./sfx.js?v=57d4a9a9f6c4"></script>
+<script src="./sfx.js?v=cecb3b111a41"></script>
 <script>
 (()=>{
- const music=new Audio(BACKGROUND_MUSIC);music.loop=true;music.volume=0.405;music.preload='auto';
+ const music=new Audio(BACKGROUND_MUSIC);music.loop=true;music.volume=1;music.preload='auto';
  const sfxButton=document.getElementById('sfx-toggle'),musicButton=document.getElementById('music-toggle');
- let started=false,sfxMuted=false;
+ window.BandWhackAudio.attachMusic(music);
+ let started=false,sfxMuted=false,musicMuted=false;
  const positionButtons=()=>{
   const canvas=document.querySelector('canvas');if(!canvas)return;
   const rect=canvas.getBoundingClientRect();
@@ -53,14 +54,14 @@ body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
   window.dispatchEvent(new CustomEvent('bandwhack-mute',{detail:{muted:sfxMuted}}));
  };
  const syncMusic=()=>{
-  musicButton.innerHTML=icon(note+(music.muted?slash:''));
-  musicButton.setAttribute('aria-pressed',String(music.muted));musicButton.setAttribute('aria-label',music.muted?'Включить музыку':'Отключить музыку');
+  musicButton.innerHTML=icon(note+(musicMuted?slash:''));
+  musicButton.setAttribute('aria-pressed',String(musicMuted));musicButton.setAttribute('aria-label',musicMuted?'Включить музыку':'Отключить музыку');
  };
- const play=()=>{started=true;music.play().catch(()=>{});};
+ const play=()=>{started=true;window.BandWhackAudio.playMusic();};
  window.addEventListener('bandwhack-play',play);
  sfxButton.addEventListener('click',()=>{sfxMuted=!sfxMuted;syncSfx();});
- musicButton.addEventListener('click',()=>{music.muted=!music.muted;syncMusic();if(started&&!music.muted)play();});
- document.addEventListener('visibilitychange',()=>{if(document.hidden)music.pause();else if(started)play();});
+ musicButton.addEventListener('click',()=>{musicMuted=!musicMuted;window.BandWhackAudio.setMusicMuted(musicMuted);syncMusic();if(started&&!musicMuted)play();});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)window.BandWhackAudio.pauseMusic();else if(started)play();});
  syncSfx();syncMusic();
 })();
 </script>
@@ -215,7 +216,7 @@ class BandWhack extends Phaser.Scene {
   flash.fillStyle(0xfff3bd,1).fillRect(-14,-14,28,28);
   this.tweens.add({targets:flash,alpha:0,scale:reduced?1:1.35,duration:180,onComplete:()=>flash.destroy()});
   if(reduced)return;
-  this.cameras?.main?.shake(200,.024,true);
+  this.cameras?.main?.shake(200,.0168,true);
   for(let i=0;i<8;i++){
    const angle=i*Math.PI/4,distance=i%2?64:82;
    const spark=this.add.rectangle(x,y,i%2?8:12,i%2?8:12,i%2?0xfff3bd:0xffc43d).setDepth(1001);
@@ -343,6 +344,7 @@ class BandWhack extends Phaser.Scene {
   this.tweens.add({targets:pop,y:pointer.worldY-35,alpha:0,duration:350,onComplete:()=>pop.destroy()});
  }
  igniteMashkov(slot,pointer){
+  this.game.canvas.dispatchEvent(new CustomEvent('bandwhack-mashkov-hit',{bubbles:true}));
   slot.resolved=true;
   this.cancelSlot(slot);slot.busy=true;slot.ignited=true;
   slot.ignitionPointer={worldX:pointer.worldX,worldY:pointer.worldY};
@@ -580,7 +582,7 @@ if(new URLSearchParams(location.search).has('diag'))bandwhackGame.events.on('pos
 </script>
 <script>
 (()=>{
- const build='20261017-ios-audio-2';document.documentElement.dataset.bandwhackBuild=build;
+ const build='20261017-ios-audio-3';document.documentElement.dataset.bandwhackBuild=build;
  if(!new URLSearchParams(location.search).has('diag'))return;
  const box=document.createElement('div');box.dataset.testid='phone-diagnostics';box.style='position:fixed;top:2px;left:2px;z-index:100000;pointer-events:none;background:#111e;color:#ffda6b;padding:5px;font:11px monospace;white-space:pre-wrap';document.body.append(box);
  let previous=performance.now(),since=previous,frames=[],tapDelay=0,taps=0,errors=0,rendered=0,audio='ещё не запущено';
