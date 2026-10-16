@@ -18,13 +18,13 @@ canvas.hammer-strike{cursor:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA
 .audio-toggle{position:fixed;left:max(16px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));z-index:10;width:48px;height:48px;border:2px solid #ffd166;background:#241710dd;color:#ffd166;font-size:26px;border-radius:0;box-shadow:3px 3px 0 #100d08;touch-action:manipulation;cursor:pointer}.audio-toggle svg{display:block;width:28px;height:28px;margin:auto;shape-rendering:crispEdges}.audio-toggle:active{box-shadow:1px 1px 0 #100d08}.audio-toggle:focus-visible{outline:3px solid white;outline-offset:3px}
 body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
 </style>
-<script src="./phaser.min.js" onerror="document.addEventListener('DOMContentLoaded',()=>document.getElementById('error').hidden=false)"></script>
+<script src="./phaser.min.js?v=e92ddef111ba" onerror="document.addEventListener('DOMContentLoaded',()=>document.getElementById('error').hidden=false)"></script>
 </head>
 <body>
 <button id="sfx-toggle" class="audio-toggle" type="button" aria-label="Отключить эффекты" aria-pressed="false"></button>
 <button id="music-toggle" class="audio-toggle" type="button" aria-label="Отключить музыку" aria-pressed="false"></button>
-<script src="./music.js"></script>
-<script src="./sfx.js"></script>
+<script src="./music.js?v=aebca1c68cb8"></script>
+<script src="./sfx.js?v=57d4a9a9f6c4"></script>
 <script>
 (()=>{
  const music=new Audio(BACKGROUND_MUSIC);music.loop=true;music.volume=0.405;music.preload='auto';
@@ -65,25 +65,25 @@ body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
 })();
 </script>
 <div id="error" hidden>Не удалось загрузить игру. Обнови страницу.</div>
-<script src="./characters.js"></script>
-<script src="./character-struve.js"></script>
-<script src="./character-mirosh.js"></script>
-<script src="./character-drew.js"></script>
-<script src="./character-semenych.js"></script>
-<script src="./character-domik.js"></script>
-<script src="./character-glebas.js"></script>
-<script src="./character-egor.js"></script>
-<script src="./character-edik.js"></script>
-<script src="./character-bodya.js"></script>
-<script src="./character-tema.js"></script>
-<script src="./character-dariy.js"></script>
-<script src="./character-yarik.js"></script>
-<script src="./character-iiist.js"></script>
-<script src="./character-kostyan.js"></script>
-<script src="./character-mashkov.js"></script>
-<script src="./background.js"></script>
-<script src="./chandelier.js"></script>
-<script src="./hole.js"></script>
+<script src="./characters.js?v=30fb66e9e9fa"></script>
+<script src="./character-struve.js?v=bfb92c2c2ca2"></script>
+<script src="./character-mirosh.js?v=87e3cdfe51d7"></script>
+<script src="./character-drew.js?v=74f470d2cbf7"></script>
+<script src="./character-semenych.js?v=fe583ae16028"></script>
+<script src="./character-domik.js?v=01ce268b8b75"></script>
+<script src="./character-glebas.js?v=dbc5ad060d16"></script>
+<script src="./character-egor.js?v=c0114064cb00"></script>
+<script src="./character-edik.js?v=daebf6bee4ce"></script>
+<script src="./character-bodya.js?v=7494fab25f25"></script>
+<script src="./character-tema.js?v=ce8597786013"></script>
+<script src="./character-dariy.js?v=e70d9fa587ff"></script>
+<script src="./character-yarik.js?v=a991cc73a7d5"></script>
+<script src="./character-iiist.js?v=c0753ebc134a"></script>
+<script src="./character-kostyan.js?v=eeb92a436926"></script>
+<script src="./character-mashkov.js?v=6254062601f2"></script>
+<script src="./background.js?v=ae39046c77d6"></script>
+<script src="./chandelier.js?v=cc167d494df5"></script>
+<script src="./hole.js?v=180fa2c98fc3"></script>
 <script>
 if(typeof Phaser!=='undefined'){
 class BandWhack extends Phaser.Scene {
@@ -119,12 +119,17 @@ class BandWhack extends Phaser.Scene {
   this.hitCounts=Object.fromEntries(this.characters.map(name=>[name,0]));
   this.loadLifetimeHits();
   this.loadBestScore();
+  const saveStats=()=>this.flushLifetimeHits();
+  window.addEventListener('pagehide',saveStats);
+  const saveWhenHidden=()=>{if(document.hidden)saveStats();};
+  document.addEventListener('visibilitychange',saveWhenHidden);
+  this.events.once('shutdown',()=>{saveStats();window.removeEventListener('pagehide',saveStats);document.removeEventListener('visibilitychange',saveWhenHidden);});
   const text=(x,y,value,size,color='#ffffff')=>this.add.text(x,y,value,{fontFamily:'Arial',fontSize:size+'px',color}).setOrigin(.5);
   const backdrop=this.add.image(230,560,'stage-background');
   const source=backdrop.texture.getSourceImage();
   backdrop.setScale(Math.max(720/source.width,1280/source.height));
   this.installSpotlights(backdrop);
-  this.installSignGlitch(backdrop);
+  // Sign glitch disabled: no extra backdrop layers, stencil masks or pulse timers.
   // Hang from the top centre while preserving the previous resting position.
   const chandelierRestAngle=-10,chandelierHalfWidth=231;
   const chandelierRadians=chandelierRestAngle*Math.PI/180;
@@ -182,38 +187,6 @@ class BandWhack extends Phaser.Scene {
   this.button.on('pointerdown',()=>{if(!this.running)this.startRound();});
   text(360,1230,'+25 удар · −10 пропуск · −1 мимо · MASHKOV: −108',17,'#aeb8d2');
  }
- installSignGlitch(backdrop){
-  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  // Keep the flicker behind the HUD and confined to the lettering on the backdrop.
-  const area={x:56,y:130,width:640,height:226};
-  const strips=Array.from({length:3},()=>{
-   const clip=this.make.graphics({x:0,y:0,add:false}),mask=clip.createGeometryMask();
-   const image=this.add.image(backdrop.x,backdrop.y,'stage-background').setScale(backdrop.scaleX).setMask(mask).setVisible(false);
-   return {clip,mask,image};
-  });
-  const flicker=this.add.graphics();
-  const clear=()=>{flicker.clear();strips.forEach(strip=>strip.image.setVisible(false));};
-  const pulse=()=>{
-   if(document.hidden){schedule();return;}
-   flicker.clear().fillStyle(0x160d10,.16).fillRect(area.x,area.y,area.width,area.height);
-   strips.forEach((strip,index)=>{
-    const y=Phaser.Math.Between(area.y+12,area.y+area.height-18),height=Phaser.Math.Between(4,10);
-    const shift=(index%2?1:-1)*Phaser.Math.Between(3,6);
-    strip.clip.clear().fillStyle(0xffffff).fillRect(area.x,y,area.width,height);
-    strip.image.setPosition(backdrop.x+shift,backdrop.y).setAlpha(.85).setVisible(true);
-    if(index===0)flicker.fillStyle(0xffb24a,.08).fillRect(area.x,y-2,area.width,2);
-   });
-   this.time.delayedCall(65,clear);
-   this.time.delayedCall(120,()=>{
-    flicker.clear().fillStyle(0x160d10,.1).fillRect(area.x,area.y,area.width,area.height);
-    strips[0].image.setX(backdrop.x+3).setAlpha(.55).setVisible(true);
-   });
-   this.time.delayedCall(210,()=>{clear();schedule();});
-  };
-  const schedule=()=>this.time.delayedCall(Phaser.Math.Between(4500,9000),pulse);
-  schedule();
-  this.events.once('shutdown',()=>strips.forEach(strip=>{strip.mask.destroy();strip.clip.destroy();}));
- }
  installSpotlights(backdrop){
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const source=backdrop.texture.getSourceImage(),scale=backdrop.scaleX;
@@ -242,6 +215,7 @@ class BandWhack extends Phaser.Scene {
   flash.fillStyle(0xfff3bd,1).fillRect(-14,-14,28,28);
   this.tweens.add({targets:flash,alpha:0,scale:reduced?1:1.35,duration:180,onComplete:()=>flash.destroy()});
   if(reduced)return;
+  this.cameras?.main?.shake(200,.024,true);
   for(let i=0;i<8;i++){
    const angle=i*Math.PI/4,distance=i%2?64:82;
    const spark=this.add.rectangle(x,y,i%2?8:12,i%2?8:12,i%2?0xfff3bd:0xffc43d).setDepth(1001);
@@ -470,7 +444,13 @@ class BandWhack extends Phaser.Scene {
  recordLifetimeHit(name){
   if(!this.characters.includes(name))return;
   this.lifetimeHits[name]=Math.min(Number.MAX_SAFE_INTEGER,(this.lifetimeHits[name]||0)+1);
-  try{localStorage.setItem('bandwhack-lifetime-hits-v1',JSON.stringify(this.lifetimeHits));this.statsStorageAvailable=true;}
+  this.statsDirty=true;
+  if(!this.statsSaveTimer)this.statsSaveTimer=setTimeout(()=>this.flushLifetimeHits(),500);
+ }
+ flushLifetimeHits(){
+  clearTimeout(this.statsSaveTimer);this.statsSaveTimer=null;
+  if(!this.statsDirty)return;
+  try{localStorage.setItem('bandwhack-lifetime-hits-v1',JSON.stringify(this.lifetimeHits));this.statsStorageAvailable=true;this.statsDirty=false;}
   catch(error){this.statsStorageAvailable=false;}
  }
  backToMenu(){
@@ -572,13 +552,15 @@ class BandWhack extends Phaser.Scene {
   this.timeText.setText('0 сек');this.progress.width=0;
   this.roundHud.setVisible(false);this.menuControl.setVisible(true);
   this.status.setText('Время! Твой результат: '+this.score);
+  this.flushLifetimeHits();
   this.recordBestScore();
   this.showHitStats();
   this.button.setDisplaySize(240,72).setStrokeStyle(4,0x8b5b25);
   this.buttonText.setText('ЕЩЁ РАЗ').setFontSize(30);
  }
 }
-new Phaser.Game({type:Phaser.AUTO,width:720,height:1280,backgroundColor:'#191d2c',pixelArt:true,input:{activePointers:4},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:BandWhack});
+const bandwhackGame=new Phaser.Game({type:Phaser.AUTO,width:720,height:1280,backgroundColor:'#191d2c',pixelArt:true,input:{activePointers:4},audio:{noAudio:true},scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:BandWhack});
+if(new URLSearchParams(location.search).has('diag'))bandwhackGame.events.on('postrender',()=>window.dispatchEvent(new Event('bandwhack-render')));
 }
 </script>
 <script>
@@ -586,31 +568,29 @@ new Phaser.Game({type:Phaser.AUTO,width:720,height:1280,backgroundColor:'#191d2c
  let timer=null,activeCanvas=null,wiggle=null;
  const reset=()=>{clearTimeout(timer);timer=null;activeCanvas?.classList.remove('hammer-strike');activeCanvas=null;};
  document.addEventListener('pointerdown',event=>{
-  if(!(event.target instanceof HTMLCanvasElement))return;
+  if(!(event.target instanceof HTMLCanvasElement)||event.pointerType==='touch')return;
   reset();activeCanvas=event.target;activeCanvas.classList.add('hammer-strike');
 
   timer=setTimeout(reset,140);
- });
- for(const impactEvent of ['bandwhack-hit','bandwhack-explosion'])document.addEventListener(impactEvent,event=>{
-  if(!(event.target instanceof HTMLCanvasElement))return;
-  if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-   wiggle?.cancel();
-   wiggle=event.target.animate([
-    {transform:'translate(0,0) rotate(0deg)'},
-    {transform:'translate(-12px,8px) rotate(-0.65deg)'},
-    {transform:'translate(11px,-7px) rotate(0.6deg)'},
-    {transform:'translate(-8px,-5px) rotate(-0.45deg)'},
-    {transform:'translate(6px,5px) rotate(0.3deg)'},
-    {transform:'translate(-4px,3px) rotate(-0.18deg)'},
-    {transform:'translate(2px,-2px) rotate(0.08deg)'},
-    {transform:'translate(0,0) rotate(0deg)'}
-   ],{duration:240,easing:'ease-out'});
-  }
  });
  document.addEventListener('pointerout',event=>{if(event.target===activeCanvas)reset();});
  document.addEventListener('pointercancel',reset);
  window.addEventListener('blur',()=>{reset();wiggle?.cancel();wiggle=null;});
 })();
+</script>
+<script>
+(()=>{
+ const build='20261017-ios-audio-2';document.documentElement.dataset.bandwhackBuild=build;
+ if(!new URLSearchParams(location.search).has('diag'))return;
+ const box=document.createElement('div');box.dataset.testid='phone-diagnostics';box.style='position:fixed;top:2px;left:2px;z-index:100000;pointer-events:none;background:#111e;color:#ffda6b;padding:5px;font:11px monospace;white-space:pre-wrap';document.body.append(box);
+ let previous=performance.now(),since=previous,frames=[],tapDelay=0,taps=0,errors=0,rendered=0,audio='ещё не запущено';
+ document.addEventListener('pointerdown',event=>{taps++;const delay=performance.now()-event.timeStamp;if(delay>=0&&delay<10000)tapDelay=Math.round(delay);},{capture:true,passive:true});
+ window.addEventListener('bandwhack-render',()=>rendered++);
+ window.addEventListener('error',()=>errors++);window.addEventListener('unhandledrejection',()=>errors++);
+ window.addEventListener('bandwhack-audio-metrics',event=>{audio=event.detail.state+' · голосов '+event.detail.active;});
+ const tick=now=>{frames.push(now-previous);previous=now;if(now-since>=1000){const sorted=frames.slice().sort((a,b)=>a-b),mean=frames.reduce((a,b)=>a+b,0)/frames.length,p95=sorted[Math.floor(sorted.length*.95)]||0;box.textContent=build+'\nFPS '+Math.round(rendered*1000/(now-since))+' · p95 '+Math.round(p95)+' мс\nКасаний '+taps+' · задержка '+tapDelay+' мс\nАудио: '+audio+'\nОшибок: '+errors;frames=[];rendered=0;since=now;}requestAnimationFrame(tick);};requestAnimationFrame(tick);
+})();
+
 </script>
 <script>
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
