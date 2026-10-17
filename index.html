@@ -24,7 +24,7 @@ body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
 <button id="sfx-toggle" class="audio-toggle" type="button" aria-label="Отключить эффекты" aria-pressed="false"></button>
 <button id="music-toggle" class="audio-toggle" type="button" aria-label="Отключить музыку" aria-pressed="false"></button>
 <script src="./music.js?v=aebca1c68cb8"></script>
-<script src="./sfx.js?v=f8512af78ee7"></script>
+<script src="./sfx.js?v=a4f528cb87a9"></script>
 <script>
 (()=>{
  const music=new Audio(BACKGROUND_MUSIC);music.loop=true;music.volume=1;music.preload='auto';
@@ -59,6 +59,7 @@ body.stats-open .audio-toggle{visibility:hidden;pointer-events:none}
  };
  const play=()=>{started=true;window.BandWhackAudio.playMusic();};
  window.addEventListener('bandwhack-play',play);
+ window.addEventListener('bandwhack-round-end',()=>window.BandWhackAudio.pauseMusic());
  sfxButton.addEventListener('click',()=>{sfxMuted=!sfxMuted;syncSfx();});
  musicButton.addEventListener('click',()=>{musicMuted=!musicMuted;window.BandWhackAudio.setMusicMuted(musicMuted);syncMusic();if(started&&!musicMuted)play();});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)window.BandWhackAudio.pauseMusic();else if(started)play();});
@@ -267,6 +268,11 @@ class BandWhack extends Phaser.Scene {
   this.tweens.killTweensOf(slot.head);slot.active=false;
  }
  startRound(){
+  this.finaleTimer?.remove(false);this.finaleTimer=null;
+  this.finalePanel?.destroy(true);this.finalePanel=null;this.ending=false;
+  this.countdownSecond=null;
+  this.tweens.killTweensOf(this.timeText);this.timeText.setScale(1).setAlpha(1).setColor('#ffd166');
+  this.countdownGlow?.destroy();this.countdownGlow=null;
   window.dispatchEvent(new Event('bandwhack-play'));
   this.setStatsOverlay(false);
   this.menuPanel?.destroy(true);this.menuPanel=null;
@@ -415,7 +421,18 @@ class BandWhack extends Phaser.Scene {
   this.updateMashkovGlints();
   const remaining=Math.max(0,this.endsAt-this.time.now);
   this.timeText.setText(Math.ceil(remaining/1000)+' сек');this.progress.width=600*remaining/60000;
-  if(!remaining)this.finish();
+  if(!remaining){this.finish();return;}
+  const second=Math.ceil(remaining/1000);
+  if(second<=5&&second!==this.countdownSecond){
+   this.countdownSecond=second;this.timeText.setColor('#ff775c');
+   if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    this.tweens.killTweensOf(this.timeText);this.timeText.setScale(1);
+    this.tweens.add({targets:this.timeText,scale:1.18,duration:180,yoyo:true,ease:'Sine.InOut'});
+    if(!this.countdownGlow)this.countdownGlow=this.add.rectangle(360,640,720,1280,0xff5533,0).setDepth(2000);
+    this.tweens.killTweensOf(this.countdownGlow);this.countdownGlow.setAlpha(.10);
+    this.tweens.add({targets:this.countdownGlow,alpha:0,duration:320,ease:'Sine.Out'});
+   }
+  }
  }
  hitSummary(counts=this.hitCounts){
   return this.characters.map(name=>({name,count:counts[name]||0}))
@@ -483,7 +500,7 @@ class BandWhack extends Phaser.Scene {
   this.button.setVisible(!open&&!this.running);this.buttonText.setVisible(!open&&!this.running);
  }
  showMenu(){
-  if(this.running)return;
+  if(this.running||this.ending)return;
   this.setStatsOverlay(false);this.resultsPanel?.setVisible(false);
   if(this.menuPanel){this.menuPanel.destroy(true);this.menuPanel=null;return;}
   const panel=this.add.container(0,0).setDepth(3000);this.menuPanel=panel;
@@ -552,11 +569,22 @@ class BandWhack extends Phaser.Scene {
   if(!this.running)return;this.running=false;this.spawnTimer?.remove(false);
   this.slots.forEach(s=>{if(s.ignited)this.explodeMashkov(s,s.ignitionPointer);this.cancelSlot(s);s.busy=false;s.head.setVisible(false);s.shine.setVisible(false);});
   this.timeText.setText('0 сек');this.progress.width=0;
-  this.roundHud.setVisible(false);this.menuControl.setVisible(true);
+  this.ending=true;this.countdownGlow?.destroy();this.countdownGlow=null;
+  this.tweens.killTweensOf(this.timeText);this.timeText.setScale(1).setAlpha(1);
+  this.roundHud.setVisible(true);this.setStatsOverlay(true);
   this.status.setText('Время! Твой результат: '+this.score);
   this.flushLifetimeHits();
   this.recordBestScore();
-  this.showHitStats();
+  window.dispatchEvent(new Event('bandwhack-round-end'));
+  const panel=this.add.container(0,0).setDepth(3000);this.finalePanel=panel;
+  panel.add(this.add.rectangle(360,640,720,1280,0x17131a,.68).setInteractive());
+  panel.add(this.add.rectangle(360,610,600,220,0x241710,.96).setStrokeStyle(4,0xffd166));
+  panel.add(this.add.text(360,565,'ВРЕМЯ!',{fontFamily:'monospace',fontSize:'64px',color:'#ffd166'}).setOrigin(.5));
+  panel.add(this.add.text(360,655,'СЧЁТ  '+this.score,{fontFamily:'monospace',fontSize:'38px',color:'#fff0be'}).setOrigin(.5));
+  this.finaleTimer=this.time.delayedCall(2500,()=>{
+   this.finaleTimer=null;panel.destroy(true);this.finalePanel=null;this.ending=false;
+   this.roundHud.setVisible(false);this.showHitStats();
+  });
   this.button.setDisplaySize(240,72).setStrokeStyle(4,0x8b5b25);
   this.buttonText.setText('ЕЩЁ РАЗ').setFontSize(30);
  }
@@ -582,7 +610,7 @@ if(new URLSearchParams(location.search).has('diag'))bandwhackGame.events.on('pos
 </script>
 <script>
 (()=>{
- const build='20261017-dariy-12';document.documentElement.dataset.bandwhackBuild=build;
+ const build='20261017-finale-13';document.documentElement.dataset.bandwhackBuild=build;
  if(!new URLSearchParams(location.search).has('diag'))return;
  const box=document.createElement('div');box.dataset.testid='phone-diagnostics';box.style='position:fixed;top:2px;left:2px;z-index:100000;pointer-events:none;background:#111e;color:#ffda6b;padding:5px;font:11px monospace;white-space:pre-wrap';document.body.append(box);
  let previous=performance.now(),since=previous,frames=[],tapDelay=0,taps=0,errors=0,rendered=0,audio='ещё не запущено';
